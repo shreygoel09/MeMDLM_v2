@@ -1,0 +1,66 @@
+
+
+seed: 42
+base_dir: /scratch/pranamlab/sgoel/MeMDLM_v2
+
+
+lm:
+  pretrained_esm: facebook/esm2_t33_650M_UR50D
+  pretrained_evoflow: fredzzp/EvoFlow-650M-context-3070
+  pretrained_dplm: airkingbd/dplm_650m
+  pretrained_progen: hugohrban/progen2-base
+  num_diffusion_timesteps: 500
+  weight_type: linear  # constant / linear
+
+
+optim:
+  type: adamw
+  scheduler: polynomial
+  lr: 0.00004
+  lr_end: 1e-5
+  warmup_init_lr: 1e-07
+  weight_decay: 0.01
+  beta1: 0.9
+  beta2: 0.98
+  power: 1
+
+
+training:
+  mode: train  # train / test / resume_from_checkpoint
+  n_layers: 3
+  max_steps: 5000
+  warmup_steps: 25
+  log_every_n_steps: 10
+  num_sanity_val_steps: 2
+  val_check_interval: 250
+  enable_progress_bar: true
+  grad_clip_val: 1.0
+  devices: [0,1,2]  # list of GPU IDs
+
+sampling:
+  n_steps: 128
+
+
+data:
+  batch_size: 8
+  max_seq_len: 1024
+  train: ${base_dir}/data/new/train.csv
+  test: ${base_dir}/data/new/test.csv
+  val: ${base_dir}/data/new/val.csv
+
+
+wandb:
+  project: memdlm
+  group: programmablebio
+  name: ft_eflow-3070-650M_steps=5k_layers=3_lr=0.00004_wd=.01_polynom_pwr=1_betas=.9-.98_bsz=8_gclip=1.0_ml=1024
+  # name: ft_progen-base-764M_steps=50k_layers=2_lr=0.00004_wd=.1_cosine-to-frac_betas=.9-.999_bsz=8_gclip=0.8
+  # name: ft_dplm-650M_steps=5k_layers=3_lr=0.00004_wd=.01_polynom_pwr=1_betas=.9-.98_bsz=32_gclip=1.0
+  # name: ft_esm-650M_steps=3k_layers=3_lr=0.00004_wd=.01_polynom_pwr=1_betas=.9-.98_bsz=32_gclip=1.0
+  id: ${.name}_${seed}
+
+
+checkpointing:
+  save_every_n_steps: 250
+  save_dir: ${base_dir}/checkpoints/${wandb.name}
+  resume_ckpt_path: ${checkpointing.save_dir}/last.ckpt
+  best_ckpt_path: ${checkpointing.save_dir}/best_model.ckpt

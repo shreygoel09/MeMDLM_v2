@@ -1,0 +1,24 @@
+# .gitignore
+
+/checkpoints/
+/data/
+/results/
+/build/
+/src/scripts/
+/src/benchmarks
+
+/src/lm/dplm
+/src/lm/evodiff
+/src/lm/dplm_playground.ipynb
+/src/lm/evoflow_playground.ipynb
+/src/utils/ubuntu_font
+
+/src/sampling/old_guidance.py
+
+/MeMDLM_v2.egg-info/
+*.pth
+*.ckpt
+*.err
+*.out
+*.csv
+__pycache__/
