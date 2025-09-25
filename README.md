@@ -22,5 +22,5 @@ Together, our framework establishes the first experimentally validated diffusion
 
 
 ## **Repository Authors**
-- <u>Shrey Goel</u> – undergraduate student at Duke University  
-- <u>Pranam Chatterjee</u> – Assistant Professor at University of Pennsylvania  
+- <u>[Shrey Goel](https://shreygoel09.github.io/)</u> – undergraduate student at Duke University  
+- <u>[Pranam Chatterjee](mailto:pranam@seas.upenn.edu)</u> – Assistant Professor at University of Pennsylvania  
