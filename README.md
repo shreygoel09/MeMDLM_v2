@@ -1,5 +1,7 @@
 # Token-Level Guided Discrete Diffusion for Membrane Protein Design
 
+[**Shrey Goel**](https://shreygoel09.github.io/)\* and [**Pranam Chatterjee**](https://www.chatterjeelab.com/)
+
 ![MemDLM diagram](./memdlm_schematic.png)
 
 **arXiv preprint:** [link TBD]
@@ -65,8 +67,6 @@ wandb login
 # or: export WANDB_API_KEY=<your-key>
 ```
 
-**Requirements:** CUDA-capable GPU(s), Python 3.10+, and sufficient disk space for pretrained checkpoints (EvoFlow-650M, ESM2-650M) and saved model weights.
-
 ---
 
 ## Configuration
@@ -79,11 +79,11 @@ base_dir: /path/to/MeMDLM_v2
 
 | Config file | Purpose |
 |---|---|
-| `src/configs/lm.yaml` | Fine-tune the MeMDLM diffusion language model |
-| `src/configs/solubility.yaml` | Train/evaluate the per-residue solubility classifier (used for PET solubilization) |
-| `src/configs/desolubilize.yaml` | PET desolubilization sampling settings (shares the solubility classifier checkpoint) |
-| `src/configs/oligo.yaml` | Train/evaluate the oligomerization classifier |
-| `src/configs/multipass.yaml` | Train/evaluate the multipass TM-segment classifier |
+| `src/configs/lm.yaml` | General diffusion language model utils (mainly for training MemDLM) |
+| `src/configs/solubility.yaml` | Train/eval per-residue solubility classifier + PET sampling hyperparameters |
+| `src/configs/desolubilize.yaml` | Hyperparameters for performing reverse solubilization task ("desolubilization") |
+| `src/configs/oligo.yaml` | Train/eval oligomerization classifier + LaMBO-2 sampling hyperparameters |
+| `src/configs/multipass.yaml` | Train/eval TM-segment classifier + LaMBO-2 sampling hyperparameters |
 
 **Training modes** are controlled by `training.mode` in each config:
 
