@@ -4,11 +4,12 @@ import torch
 import torch.nn.functional as F
 
 from src.utils.model_utils import _print
-from src.guidance.solubility_module import SolubilityClassifier
+from src.utils.config_utils import repo_path
+from src.guidance.solubility.solubility_module import SolubilityClassifier
 from src.sampling.unconditional_sampler import UnconditionalSampler
 
 
-class GuidedSampler:
+class PETSampler:
     def __init__(self, config, esm_model, tokenizer, diffusion, device):
         self.config = config
         self.device = device
@@ -18,7 +19,7 @@ class GuidedSampler:
         self.tokenizer = tokenizer
         self.uncond_generator = UnconditionalSampler(self.tokenizer, self.memdlm)
 
-        ckpt_path = os.path.join(f"/home/a03-sgoel/MeMDLM_v2/checkpoints/{config.wandb.name}/best_model.ckpt")
+        ckpt_path = str(repo_path("checkpoints", config.wandb.name, "best_model.ckpt"))
         self.classifier_model = SolubilityClassifier(config)
         state_dict = self.classifier_model.get_state_dict(ckpt_path)
         self.classifier_model.load_state_dict(state_dict)
@@ -31,7 +32,7 @@ class GuidedSampler:
         self.saliency_t = self.config.guidance.saliency_t
         self.sampling_t = self.config.guidance.sampling_t
         self.boltzmann_t = self.config.guidance.boltzmann_t
-    
+        self.task = self.config.guidance.get("task", "solubilize")
 
     def embed_sequence(self, input_ids, attention_masks):
         with torch.no_grad():
@@ -107,7 +108,13 @@ class GuidedSampler:
             bias[other_idxs] = 0.0
 
             sol_scores = torch.sigmoid(solubility_logits)
-            token_bias = sol_scores.unsqueeze(-1) * bias
+            task = self.task
+            if task == "desolubilize":
+                # At soluble positions, bias toward hydrophobic / TM-like residues.
+                token_bias = sol_scores.unsqueeze(-1) * (-bias)
+            else:
+                # At insoluble positions, bias toward hydrophilic residues.
+                token_bias = (1.0 - sol_scores).unsqueeze(-1) * bias
 
             lm_probs = F.softmax(logits_prior / self.sampling_t, dim=-1)
             boltz_weight = torch.exp(token_bias / self.boltzmann_t)
@@ -143,6 +150,10 @@ class GuidedSampler:
 
         # Initialize a mask to store the editable token positions
         edit_mask = torch.ones(seq_len, dtype=torch.bool, device=self.device)
+        
+        # ignore <cls> and <eos> tokens
+        edit_mask[0] = False
+        edit_mask[-1] = False
 
         # Check for any provided soluble residues, otherwise use classifier preds
         if len(soluble_indices) > 0:
@@ -151,10 +162,12 @@ class GuidedSampler:
             solubility_preds = F.sigmoid(solubility_logits)
             edit_mask[solubility_preds > 0.5] = False
 
-        # Find additional TM residues
-        num_conserved = max(1, int(0.1 * edit_mask.sum()))
-        _, topk_idxs = torch.topk(saliency_map, num_conserved)
-        edit_mask[topk_idxs] = False
+        # during solubilization, we also fix the high-saliency TM residues
+        # but for desolubilization, skip this as high-saliency positions are the soluble sites we want to edit
+        if self.task != "desolubilize":
+            num_conserved = max(1, int(0.1 * edit_mask.sum()))
+            _, topk_idxs = torch.topk(saliency_map, num_conserved)
+            edit_mask[topk_idxs] = False
 
         edit_idxs = edit_mask.nonzero(as_tuple=True)[0]
         return edit_idxs
@@ -207,6 +220,7 @@ class GuidedSampler:
         Compute the log probs of the "new" (optimized) token.
         """
         w = torch.sigmoid(saliency_weight * self.alpha)  # Between [0, 1] to ensure valid probs
+        _print(f'w: {w}')
         p_lm = torch.exp(logp_lm)
         p_prior = torch.exp(logp_prior)
         mixed_probs = (1 - w) * p_lm + w * p_prior
@@ -225,8 +239,12 @@ class GuidedSampler:
     def optimize_sequence(self, input_ids, attn_masks, soluble_indices):
         _print(f'soluble idx: {soluble_indices}')
 
+        scaffold_ids = input_ids.squeeze()
+
         # Initialize token ids, logits, and log probs of sequence
         x0, logp_lm, logits_prior = self.denoise_sequence(input_ids, attn_masks)
+        # x0 is resampled from LM logits at all positions, so restore scaffold from input
+        x0[soluble_indices] = scaffold_ids[soluble_indices]
         _print(f'og tokens: {x0}')
         _print(f'og tokens: {x0.shape}')
         _print(f'og log probs: {logp_lm.shape}')
@@ -281,11 +299,12 @@ class GuidedSampler:
         # Sample new tokens        
         x0_prime = torch.distributions.Categorical(logits=logp_lm).sample()
     
-        # Check if any soluble residues have been changed
-        self.check_scaffold(x0, x0_prime, soluble_indices)
+        # Check if any scaffold residues have been changed
+        self.check_scaffold(scaffold_ids, x0_prime, soluble_indices)
 
-        # Preserve the initial sequence scaffold by copying over the soluble tokens
-        x0_prime[soluble_indices] = x0[soluble_indices]
-        self.check_scaffold(x0, x0_prime, soluble_indices)
+        # Preserve scaffold from the _original_ tokenized input, not resampled x0
+        # since the categorical sampling might not sample the original scaffold token
+        x0_prime[soluble_indices] = scaffold_ids[soluble_indices]
+        self.check_scaffold(scaffold_ids, x0_prime, soluble_indices)
 
         return x0_prime

@@ -1,0 +1,86 @@
+
+
+
+seed: 42
+base_dir: /scratch/pranamlab/sgoel/MeMDLM_v2
+
+
+lm:
+  pretrained_esm: facebook/esm2_t33_650M_UR50D
+  pretrained_evoflow: fredzzp/EvoFlow-650M-context-3070
+  pretrained_dplm: airkingbd/dplm_650m
+  ft_evoflow: ft_eflow-3070-650M_steps=5k_layers=3_lr=1e-5_lr-end=2e-6_wd=.01_polynom_pwr=1_betas=.9-.98_bsz=8_gclip=1.0_ml=1024
+  ft_dplm: ft_dplm-650M_steps=5k_layers=3_lr=0.00004_wd=.01_polynom_pwr=1_betas=.9-.98_bsz=32_gclip=1.0
+
+model:
+  esm_dim: 1280
+  d_model: 128
+  num_heads: 2
+  dropout: 0.3
+  num_layers: 1
+  label_pad_value: -100
+
+optim:
+  type: adamw
+  lr: 1e-4
+  lr_end: 1e-5
+  weight_decay: 0.02
+  beta1: 0.9
+  beta2: 0.98
+  power: 1
+
+
+training:
+  mode: test  # train / test
+  n_layers: 4
+  max_steps: 3000
+  warmup_steps: 200
+  log_every_n_steps: 10
+  num_sanity_val_steps: 2
+  val_check_interval: 100
+  enable_progress_bar: true
+  grad_clip_val: 1.0
+  devices: 2
+
+guidance:
+  n_steps: 128
+  alpha: 3
+  gamma: 0.3
+  saliency_eps: 1e-4
+  saliency_t: 2.0
+  sampling_t: 0.7
+  boltzmann_t: 0.3
+  top_p: 0.2
+  steps: 128
+  prior: lm_probs  # lm_probs / boltzmann
+
+olig_guidance:
+  guide_steps: 12
+  diffusion_steps: 64
+  reg_strength: 1
+  step_size: 0.1
+  temperature: 1.0
+  eps: 1e-8
+  residue_thresh: 0.5
+  topk_frac: 0.2
+
+data:
+  batch_size: 64
+  max_seq_len: 54
+  train: ${base_dir}/data/olig_clf/train.csv
+  test: ${base_dir}/data/olig_clf/test.csv
+  val: ${base_dir}/data/olig_clf/val.csv
+
+
+wandb:
+  project: memdlm_oligo
+  group: programmablebio
+  name: oligo-clf_steps3k_lr1e-4_bsz64_drpt0.3_wd0.02_dmodel128_simple-mlp_mean-pool
+  id: ${.name}_${seed}
+
+
+checkpointing:
+  save_every_n_steps: 250
+  save_dir: ${base_dir}/checkpoints/${wandb.name}
+  resume_ckpt_path: ${checkpointing.save_dir}/last.ckpt
+  best_ckpt_path: ${checkpointing.save_dir}/best_model.ckpt

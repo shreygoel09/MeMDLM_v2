@@ -28,7 +28,7 @@ class MembraneDiffusion(pl.LightningModule):
         self.mask_id = self.tokenizer.mask_token_id
         self.pad_id = self.tokenizer.pad_token_id
 
-    def forward(self, input_ids, attention_mask, guidance: Optional[bool] = False):
+    def forward(self, input_ids, attention_mask, return_hidden=None):
         """
         Forward pass through language model.
 
@@ -38,7 +38,12 @@ class MembraneDiffusion(pl.LightningModule):
         Returns:
             - logits (torch.Tensor): [B, L, V], unnormalized model outputs
         """
-        return self.model(input_ids=input_ids, attention_mask=attention_mask).logits
+        if return_hidden:
+            out = self.model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
+            return out.hidden_states[-1]
+        
+        else:
+            return self.model(input_ids=input_ids, attention_mask=attention_mask).logits
 
     # -------# Diffusion #-------- #
     def step(self, batch):
@@ -78,7 +83,6 @@ class MembraneDiffusion(pl.LightningModule):
         u = torch.rand_like(x0, dtype=torch.float) 
         t1_mask = (u < (t1 / self.config.lm.num_diffusion_timesteps)[:, None]) & maskable_mask
         x_t1 = x0.masked_fill(t1_mask, self.mask_id)
-        x_t1 = x_t1.masked_fill(t1_mask, self.mask_id)
         return x_t1, t1_mask
 
     def get_weight(self, t, weight_type):
@@ -100,7 +104,7 @@ class MembraneDiffusion(pl.LightningModule):
         
         Args:
             logits (torch.Tensor): [B, L, vocab_size], unnormalized model outputs
-            labels (torch.Tensor): [B, L], target labels (with padding tokens as -100)
+            labels (torch.Tensor): [B, L], target labels with pad tokens
             weight (torch.Tensor): [B, 1], per-sample weight for loss calculation
         Returns:
             loss (torch.Tensor): Averaged loss over the batch
@@ -127,22 +131,22 @@ class MembraneDiffusion(pl.LightningModule):
     # -------# Training / Evaluation #-------- #
     def training_step(self, batch):
         loss, ppl = self.step(batch)
-        self.log("train/loss", loss.item(), on_step=True, on_epoch=False, prog_bar=True)
-        self.log("train/ppl", ppl.item(), on_step=True, on_epoch=False, prog_bar=False)
+        self.log("train/loss", loss, on_step=True, on_epoch=False, prog_bar=True)
+        self.log("train/ppl", ppl, on_step=True, on_epoch=False, prog_bar=False)
         return loss
     
     def validation_step(self, batch):
         loss, ppl = self.step(batch)
         self.cleanup()
-        self.log("val/loss", loss.item(), on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("val/ppl", ppl.item(), on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("val/ppl", ppl, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
     def test_step(self, batch):
         loss, ppl = self.step(batch)
         self.cleanup()
-        self.log('test/loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        self.log("test/ppl", ppl.item(), on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
+        self.log('test/loss', loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("test/ppl", ppl, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
 
@@ -176,7 +180,7 @@ class MembraneDiffusion(pl.LightningModule):
                     k.replace('model.', '')
             return state_dict  
 
-        checkpoint = torch.load(ckpt_path, map_location='cuda' if torch.cuda.is_available() else 'cpu')
+        checkpoint = torch.load(ckpt_path, weights_only=False)#, map_location='cuda' if torch.cuda.is_available() else 'cpu')
         state_dict = checkpoint.get("state_dict", checkpoint)
 
         if any(k.startswith("model.") for k in state_dict.keys()):

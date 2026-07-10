@@ -15,7 +15,7 @@ class UnconditionalSampler:
         self.seed_everything(seed=42)
 
     @torch.inference_mode()
-    def sample_unconditional(self, xt, num_steps, tau=0.7, kappa_fn=lambda t: t, eta=1, alpha=1., banned_token_ids=None, return_logits=None): 
+    def sample_unconditional(self, xt, num_steps, tau=1.0, kappa_fn=lambda t: t, eta=1, alpha=1., banned_token_ids=None, return_logits=None): 
         """
         Stochastic remasking sampling method for iterative refinement of sequences.
 

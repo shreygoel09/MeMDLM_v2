@@ -13,12 +13,12 @@
 /src/lm/evoflow_playground.ipynb
 /src/utils/ubuntu_font
 
-/src/sampling/old_guidance.py
-
 /MeMDLM_v2.egg-info/
 *.pth
 *.ckpt
 *.err
 *.out
 *.csv
+*.ipynb
+*.png
 __pycache__/

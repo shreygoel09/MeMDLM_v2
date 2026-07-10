@@ -9,13 +9,13 @@ import numpy as np
 from omegaconf import OmegaConf
 from transformers import AutoModelForMaskedLM, AutoModel, AutoTokenizer
 
-from src.lm.memdlm.diffusion_module import MembraneFlow
-from src.lm.dplm.diffusion_module import DPLM
+from src.lm.memdlm.diffusion_module import MembraneDiffusion
 from src.utils.model_utils import get_latents, _print
 from src.sampling.unconditional_sampler import UnconditionalSampler
-from src.lm.dplm.unconditional_sampler import UnconditionalSampler as DPLMUnconditionalSampler
 
-config = OmegaConf.load("/home/a03-sgoel/MeMDLM_v2/src/configs/lm.yaml")
+
+config = OmegaConf.load("/scratch/pranamlab/sgoel/MeMDLM_v2/src/configs/lm.yaml")
+
 
 # -------# Masking #-------- #
 def mask_for_de_novo(sequence_length):
@@ -30,7 +30,7 @@ def mask_for_scaffold(sequence, generate_type, mask_token):
 
 
 # -------# Generation #-------- #
-def memflow_infill_uncond(masked_seq, tokenizer, model: MembraneFlow):
+def memflow_infill_uncond(masked_seq, tokenizer, model: MembraneDiffusion):
     generator = UnconditionalSampler(tokenizer, model) # initialize the generator object
     xt = tokenizer(masked_seq, return_tensors='pt')['input_ids'].to(model.device)
     denoised_tokens = generator.sample_unconditional(xt, config.sampling.n_steps)[0].squeeze()
@@ -68,7 +68,10 @@ def evodiff_infill(motif_seq, tokenizer, model, device, batch_size=1):
     return output[0] #if batch_size==1 else output, og_sample, loc
 
 
-def dplm_infill(masked_seq, tokenizer, model: DPLM, device):
+def dplm_infill(masked_seq, tokenizer, model, device):
+    from src.lm.dplm.diffusion_module import DPLM
+    from src.lm.dplm.unconditional_sampler import UnconditionalSampler as DPLMUnconditionalSampler
+    
     generator = DPLMUnconditionalSampler(tokenizer, model)
     xt = tokenizer(masked_seq, return_tensors='pt')['input_ids'].to(model.device)
     denoised_tokens = generator.sample_unconditional(xt, config.sampling.n_steps)[0].squeeze()
@@ -111,7 +114,7 @@ def calc_ppl(model, tokenizer, generated_sequence, mask_token_indices, model_typ
         with torch.no_grad():
             if model_type == 'esm':
                 loss = model(masked_input, labels=labels).loss.item()
-            elif model_type == 'flow':
+            elif model_type == 'diffusion':
                 logits = model.forward(masked_input, attention_mask=attn_mask)
                 loss = F.cross_entropy(
                     logits.view(-1, logits.size(-1)),
@@ -141,6 +144,28 @@ def calc_blosum_score(og_seq, gen_seq, indices):
              # -4 is lowest BLOSUM score indicating biological implausability
             tot_score += -4
     return tot_score / len(indices) if indices else 0
+
+
+# define TM enrichment dict
+TM_ENRICHMENT = {
+    'A': -0.06647, 'C':  0.312396, 'D': -1.52276, 'E': -1.7743,  'F':  0.800983,
+    'G':  0.756636, 'H': -0.44366,  'I':  0.551521, 'K': -1.56399,  'L':  0.299315,
+    'M':  0.279242, 'N': -0.54795,  'P':  0.180039, 'Q': -1.16639,  'R': -1.17808,
+    'S':  0.110367, 'T':  0.228464,  'V':  0.510702, 'W':  0.562891,  'Y':  0.084097
+}
+
+def calc_tm_enrich(og_seq, gen_seq, indices):
+    def _score(seq):
+        chars = [seq[i] for i in indices if i < len(seq)] if indices else list(seq)
+        vals = [TM_ENRICHMENT.get(aa.upper()) for aa in chars]
+        vals = [v for v in vals if v is not None]
+        return float(np.mean(vals)) if vals else float('nan')
+    
+    og_score = _score(og_seq)
+    gen_score = _score(gen_seq)
+    delta_score = gen_score - og_score
+    return og_score, gen_score, delta_score
+
 
 
 def calc_cos_sim(original_sequence, generated_sequence, tokenizer, esm_model, device):

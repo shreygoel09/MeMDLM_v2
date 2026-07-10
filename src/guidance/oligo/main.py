@@ -10,16 +10,17 @@ from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from src.utils.model_utils import _print
-from src.guidance.solubility_module import SolubilityClassifier
-from src.guidance.dataloader import MembraneDataModule, get_datasets
+from src.utils.config_utils import load_config
+from src.guidance.oligo.oligo_module import OligomerClassifier
+from src.guidance.oligo.dataloader import get_datasets, OligomerDataModule
 
 
-config = OmegaConf.load("/scratch/sgoel/MeMDLM_v2/src/configs/guidance.yaml")
-wandb.login(key='2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f')
+config = load_config("oligo.yaml")
+wandb.login()
 
 # data
 datasets = get_datasets(config)
-data_module = MembraneDataModule(
+data_module = OligomerDataModule(
     config=config,
     train_dataset=datasets['train'],
     val_dataset=datasets['val'],
@@ -56,7 +57,7 @@ ckpt_dir = config.checkpointing.save_dir
 os.makedirs(ckpt_dir, exist_ok=True)
 
 # instantiate model
-model = SolubilityClassifier(config)
+model = OligomerClassifier(config)
 
 # train or evalute the model
 if config.training.mode == "train":

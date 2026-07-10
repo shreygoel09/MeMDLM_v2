@@ -14,12 +14,13 @@ from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from src.lm.memdlm.diffusion_module import MembraneDiffusion
 from src.lm.memdlm.dataloader import MembraneDataModule, get_datasets
 from src.utils.model_utils import apply_rdm_freezing
+from src.utils.config_utils import load_config
 
-wandb.login(key='2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f')
+wandb.login()
 
 
 # Load yaml config
-config = OmegaConf.load("/scratch/pranamlab/sgoel/MeMDLM_v2/src/configs/lm.yaml")
+config = load_config("lm.yaml")
 
 # Get datasets
 datasets = get_datasets(config)
