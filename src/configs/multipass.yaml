@@ -30,7 +30,7 @@ optim:
 
 
 training:
-  mode: test  # train / test
+  mode: train  # train / test
   n_layers: 4
   max_steps: 3000
   warmup_steps: 150
@@ -51,15 +51,15 @@ guidance:
 data:
   batch_size: 32
   max_seq_len: 1024
-  train: ${base_dir}/data/multipass/train_tm_segment_counts.csv
-  test: ${base_dir}/data/multipass/test_tm_segment_counts.csv
-  val: ${base_dir}/data/multipass/val_tm_segment_counts.csv
+  train: ${base_dir}/data/multipass/tm_enrich/train_tm_segment_counts.csv
+  test: ${base_dir}/data/multipass/tm_enrich/test_tm_segment_counts.csv
+  val: ${base_dir}/data/multipass/tm_enrich/val_tm_segment_counts.csv
 
 
 wandb:
   project: memdlm_again
   group: programmablebio
-  name: multipass_clf_steps3k_lr3e-5_bsz32_heads2_drpt0.5_layers4
+  name: multipass_tm_enrich_clf_steps3k_lr3e-5_bsz32_heads2_drpt0.5_layers4
   id: ${.name}_${seed}
 
 

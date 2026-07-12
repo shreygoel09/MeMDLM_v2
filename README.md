@@ -1,6 +1,6 @@
 # Token-Level Guided Discrete Diffusion for Membrane Protein Design
 
-[**Shrey Goel**](https://shreygoel09.github.io/)\* and [**Pranam Chatterjee**](https://www.chatterjeelab.com/)
+[**Shrey Goel**](https://shreygoel09.github.io/) and [**Pranam Chatterjee**](https://www.chatterjeelab.com/)
 
 ![MemDLM diagram](./memdlm_schematic.png)
 

@@ -4,15 +4,10 @@ import torch.nn as nn
 import lightning.pytorch as pl
 import torch.nn.functional as F
 
-from omegaconf import OmegaConf
-
 from src.utils.model_utils import _print
-from src.guidance.solubility.utils import CosineWarmup
+from src.utils.warmup_utils import CosineWarmup
 
 from sklearn.metrics import roc_auc_score, accuracy_score
-
-
-config = OmegaConf.load("/scratch/pranamlab/sgoel/MeMDLM_v2/src/configs/multipass.yaml")
 
 
 class MultipassClassifier(pl.LightningModule):
@@ -76,6 +71,8 @@ class MultipassClassifier(pl.LightningModule):
         
         logits = self.forward(x_t, attention_mask)
         loss = self.compute_loss(logits, labels)
+
+        _print(f'preds: {torch.sigmoid(logits)}')
         
         return loss, logits
 

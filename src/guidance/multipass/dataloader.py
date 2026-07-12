@@ -17,7 +17,7 @@ class MembraneDataset(Dataset):
 
     def __getitem__(self, idx):
         sequence = self.data.iloc[idx]["Sequence"]
-        tm_segs = self.data.iloc[idx]["TM_segments"]
+        binary_label = self.data.iloc[idx]["Binary"]
 
         tokens = self.tokenizer(
             sequence.upper(),
@@ -27,7 +27,7 @@ class MembraneDataset(Dataset):
             max_length=self.config.data.max_seq_len,
         )
 
-        labels = torch.tensor(1 if tm_segs > 0 else 0, dtype=torch.float)
+        labels = torch.tensor(binary_label, dtype=torch.float)
 
         return {
             "input_ids": tokens['input_ids'],
